@@ -1,0 +1,17 @@
+#!/bin/bash
+CURRENT_DATE=$(date +%d-%m-%Y-%H:%M:%S)
+
+# Run mongodump with URI for backup
+docker exec mongodb-prod mongodump --host localhost --username admin --password passwordhere --authenticationDatabase admin --db dbtobackup --out=/backup/
+
+# Copy the backup from the container to the host machine
+docker cp mongodb-prod:/backup /home/ubuntu/db_backup
+
+# Compress the backup data
+tar -czvf /home/ubuntu/$CURRENT_DATE.tar.gz /home/ubuntu/db_backup
+
+# Upload the compressed backup to S3 (AWS CLI configuration required)
+aws s3 cp /home/ubuntu/$CURRENT_DATE.tar.gz s3://bucket-name
+# Remove the local copy of the compressed backup from the host machine
+rm /home/ubuntu/$CURRENT_DATE.tar.gz
+rm -r /home/ubuntu/db_backup/*

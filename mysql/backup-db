@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Define your MySQL container name and database credentials
+MYSQL_CONTAINER_NAME="db"
+MYSQL_DATABASE="parentalis-db"
+MYSQL_USER="admin"
+MYSQL_PASSWORD="S2wfLJiaMmbCLSwwJpMi"
+
+# Define your S3 bucket name
+S3_BUCKET_NAME="du-clients-db-backup"
+
+# Define the current date to be used in the backup filename
+CURRENT_DATE=$(date +%Y%m%d%H%M%S)
+
+# Backup MySQL database
+docker exec -i $MYSQL_CONTAINER_NAME mysqldump -u$MYSQL_USER -p$MYSQL_PASSWORD --no-tablespaces $MYSQL_DATABASE > /tmp/$MYSQL_DATABASE-$CURRENT_DATE.sql
+
+# Check if the backup was successful
+if [ $? -eq 0 ]; then
+    echo "MySQL database backup completed successfully."
+
+    # Compress the .sql file
+    gzip /tmp/$MYSQL_DATABASE-$CURRENT_DATE.sql
+
+    # Upload the backup to S3
+    aws s3 cp /tmp/$MYSQL_DATABASE-$CURRENT_DATE.sql.gz s3://$S3_BUCKET_NAME/$MYSQL_DATABASE-backup-$CURRENT_DATE.sql.gz
+
+    # Check if the upload was successful
+    if [ $? -eq 0 ]; then
+        echo "Backup uploaded to S3 bucket: s3://$S3_BUCKET_NAME/$MYSQL_DATABASE-backup-$CURRENT_DATE.sql.gz"
+    else
+        echo "Error uploading the backup to S3."
+    fi
+
+    # Clean up the local backup file
+    rm /tmp/$MYSQL_DATABASE-$CURRENT_DATE.sql.gz
+else
+    echo "Error creating MySQL database backup."
+fi

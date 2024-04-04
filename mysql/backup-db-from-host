@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# MySQL database credentials
+DB_USER="your_db_user"
+DB_PASSWORD="your_db_password"
+DB_NAME="your_db_name"
+
+# AWS S3 bucket details
+AWS_REGION="your_aws_region"
+S3_BUCKET="your_s3_bucket"
+S3_PREFIX="backup/mysql"
+
+# Timestamp for the backup file
+TIMESTAMP=$(date '+%Y%m%d%H%M%S')
+
+# Directory to store the backup locally
+BACKUP_DIR="/tmp"
+
+# File name for the backup
+BACKUP_FILE="$DB_NAME-$TIMESTAMP.sql"
+
+# Create a backup of the MySQL database
+mysqldump -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" > "$BACKUP_DIR/$BACKUP_FILE"
+
+# Check if the backup file exists
+if [ -f "$BACKUP_DIR/$BACKUP_FILE" ]; then
+    # Upload the backup file to S3
+    aws s3 cp "$BACKUP_DIR/$BACKUP_FILE" "s3://$S3_BUCKET/$S3_PREFIX/$BACKUP_FILE" --region "$AWS_REGION"
+
+    # Check if the upload was successful
+    if [ $? -eq 0 ]; then
+        echo "Backup successfully uploaded to S3: $S3_BUCKET/$S3_PREFIX/$BACKUP_FILE"
+        # Optional: Remove the local backup file after uploading to S3
+        rm "$BACKUP_DIR/$BACKUP_FILE"
+    else
+        echo "Failed to upload backup to S3"
+    fi
+else
+    echo "Backup file not found. Backup process failed."
+fi
